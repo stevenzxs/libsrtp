@@ -1,0 +1,38 @@
+name: Verify SM4-GCM adapter
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - gm-libsrtp-v43.3.0
+    tags:
+      - 'v*-libsrtp-gm*'
+
+jobs:
+  compile-linux:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout libsrtp
+        uses: actions/checkout@v4
+
+      - name: Checkout GM BoringSSL
+        uses: actions/checkout@v4
+        with:
+          repository: stevenzxs/BoringSSL
+          ref: v43.3.0-gm17
+          path: boringssl
+          fetch-depth: 1
+
+      - name: Configure BoringSSL
+        run: cmake -S boringssl -B boringssl/out -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF
+
+      - name: Build BoringSSL crypto and SSL
+        run: cmake --build boringssl/out --target crypto ssl --parallel 2
+
+      - name: Compile SM4-GCM adapter
+        run: |
+          cc -std=c11 -DOPENSSL -DGCM -DHAVE_CONFIG_H \
+            -I. -Iconfig -Iinclude -Icrypto/include \
+            -Iboringssl/include \
+            -c crypto/cipher/sm4_gcm_bssl.c \
+            -o sm4_gcm_bssl.o

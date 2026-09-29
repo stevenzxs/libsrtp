@@ -16,5 +16,7 @@ Chromium local modifications, including removal of unused non-OpenSSL cipher
 implementations and renaming `VERSION` to `LIBSRTP_VERSION`.
 
 No SM4-GCM implementation or `SRTP_SM4_GCM` profile is included in this
-baseline. Those changes must be added as subsequent commits and tested with
-the shared JVB vectors.
+baseline tag. The first follow-up commit adds the BoringSSL-backed SM4-GCM
+cipher adapter and the PoC profile policy, but it is not yet accepted as an
+interoperability-complete implementation until the shared JVB vectors and
+Electron build pass.

@@ -140,6 +140,7 @@ extern "C" {
     (SRTP_AEAD_SALT_LEN + SRTP_AES_192_KEY_LEN)
 #define SRTP_AES_GCM_256_KEY_LEN_WSALT                                         \
     (SRTP_AEAD_SALT_LEN + SRTP_AES_256_KEY_LEN)
+#define SRTP_SM4_GCM_KEY_LEN_WSALT (SRTP_AEAD_SALT_LEN + 16)
 
 /**
  *  @brief A srtp_cipher_type_id_t is an identifier for a particular cipher
@@ -1132,6 +1133,9 @@ void srtp_crypto_policy_set_aes_gcm_256_8_only_auth(srtp_crypto_policy_t *p);
  */
 void srtp_crypto_policy_set_aes_gcm_128_16_auth(srtp_crypto_policy_t *p);
 
+/** Sets the SM4-GCM policy with a 16-octet authentication tag. */
+void srtp_crypto_policy_set_sm4_gcm_16_auth(srtp_crypto_policy_t *p);
+
 /**
  * @brief srtp_crypto_policy_set_aes_gcm_256_16_auth() sets a crypto
  * policy structure to an AEAD encryption policy
@@ -1185,7 +1189,8 @@ typedef enum {
     srtp_profile_null_sha1_80 = 5,
     srtp_profile_null_sha1_32 = 6,
     srtp_profile_aead_aes_128_gcm = 7,
-    srtp_profile_aead_aes_256_gcm = 8
+    srtp_profile_aead_aes_256_gcm = 8,
+    srtp_profile_sm4_gcm = 0x0100
 } srtp_profile_t;
 
 /**
