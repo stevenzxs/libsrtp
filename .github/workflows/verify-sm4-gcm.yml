@@ -26,8 +26,8 @@ jobs:
       - name: Configure BoringSSL
         run: cmake -S boringssl -B boringssl/out -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF
 
-      - name: Build BoringSSL crypto and SSL
-        run: cmake --build boringssl/out --target crypto ssl --parallel 2
+      - name: Build BoringSSL crypto, SSL, and decrepit compatibility layer
+        run: cmake --build boringssl/out --target crypto ssl decrepit --parallel 2
 
       - name: Compile SM4-GCM adapter
         run: |
@@ -48,5 +48,6 @@ jobs:
             -Iboringssl/include \
             ci/sm4_gcm_adapter_test.c sm4_gcm_bssl.o \
             "$(find boringssl/out -name libcrypto.a -print -quit)" \
+            "$(find boringssl/out -name libdecrepit.a -print -quit)" \
             -lpthread -ldl -o sm4_gcm_adapter_test
           ./sm4_gcm_adapter_test
