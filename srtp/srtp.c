@@ -3804,6 +3804,16 @@ void srtp_crypto_policy_set_aes_gcm_128_16_auth(srtp_crypto_policy_t *p)
     p->sec_serv = sec_serv_conf_and_auth;
 }
 
+void srtp_crypto_policy_set_sm4_gcm_16_auth(srtp_crypto_policy_t *p)
+{
+    p->cipher_type = SRTP_SM4_GCM;
+    p->cipher_key_len = SRTP_SM4_GCM_KEY_LEN_WSALT;
+    p->auth_type = SRTP_NULL_AUTH;
+    p->auth_key_len = 0;
+    p->auth_tag_len = 16;
+    p->sec_serv = sec_serv_conf_and_auth;
+}
+
 /*
  * AES-256 GCM mode with 16 octet auth tag.
  */
@@ -4809,6 +4819,9 @@ srtp_err_status_t srtp_crypto_policy_set_from_profile_for_rtp(
     case srtp_profile_aead_aes_256_gcm:
         srtp_crypto_policy_set_aes_gcm_256_16_auth(policy);
         break;
+    case srtp_profile_sm4_gcm:
+        srtp_crypto_policy_set_sm4_gcm_16_auth(policy);
+        break;
 #endif
     /* the following profiles are not (yet) supported */
     case srtp_profile_null_sha1_32:
@@ -4842,6 +4855,9 @@ srtp_err_status_t srtp_crypto_policy_set_from_profile_for_rtcp(
         break;
     case srtp_profile_aead_aes_256_gcm:
         srtp_crypto_policy_set_aes_gcm_256_16_auth(policy);
+        break;
+    case srtp_profile_sm4_gcm:
+        srtp_crypto_policy_set_sm4_gcm_16_auth(policy);
         break;
 #endif
     /* the following profiles are not (yet) supported */
@@ -4879,6 +4895,9 @@ unsigned int srtp_profile_get_master_key_length(srtp_profile_t profile)
     case srtp_profile_aead_aes_256_gcm:
         return SRTP_AES_256_KEY_LEN;
         break;
+    case srtp_profile_sm4_gcm:
+        return 16;
+        break;
     /* the following profiles are not (yet) supported */
     case srtp_profile_null_sha1_32:
     default:
@@ -4902,6 +4921,9 @@ unsigned int srtp_profile_get_master_salt_length(srtp_profile_t profile)
         return SRTP_AEAD_SALT_LEN;
         break;
     case srtp_profile_aead_aes_256_gcm:
+        return SRTP_AEAD_SALT_LEN;
+        break;
+    case srtp_profile_sm4_gcm:
         return SRTP_AEAD_SALT_LEN;
         break;
     /* the following profiles are not (yet) supported */

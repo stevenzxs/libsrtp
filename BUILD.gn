@@ -108,10 +108,12 @@ static_library("libsrtp") {
     "crypto/include/null_cipher.h",
     "crypto/include/rdb.h",
     "crypto/include/rdbx.h",
+    "crypto/include/sm4_gcm.h",
     "include/srtp_priv.h",
 
     # sources
     "crypto/cipher/aes_gcm_ossl.c",
+    "crypto/cipher/sm4_gcm_bssl.c",
     "crypto/cipher/aes_icm_ossl.c",
     "crypto/cipher/cipher.c",
     "crypto/cipher/cipher_test_cases.c",

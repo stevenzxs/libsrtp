@@ -97,6 +97,9 @@
  */
 #define SRTP_AES_GCM_256 7
 
+/* SM4-GCM with a 16-octet key and a 12-octet master salt. */
+#define SRTP_SM4_GCM 8
+
 /*
  * The null authentication function performs no authentication.
  *
