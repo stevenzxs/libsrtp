@@ -31,8 +31,22 @@ jobs:
 
       - name: Compile SM4-GCM adapter
         run: |
-          cc -std=c11 -DOPENSSL -DGCM -DHAVE_CONFIG_H \
+          cc -std=c11 -DOPENSSL -DGCM -DHAVE_UINT64_T -DHAVE_UINT8_T \
+            -DHAVE_UINT16_T -DHAVE_UINT32_T -DHAVE_INT32_T \
+            -DHAVE_NETINET_IN_H \
             -I. -Iconfig -Iinclude -Icrypto/include \
             -Iboringssl/include \
             -c crypto/cipher/sm4_gcm_bssl.c \
             -o sm4_gcm_bssl.o
+
+      - name: Run SM4-GCM adapter vector test
+        run: |
+          cc -std=c11 -DOPENSSL -DGCM -DHAVE_UINT64_T -DHAVE_UINT8_T \
+            -DHAVE_UINT16_T -DHAVE_UINT32_T -DHAVE_INT32_T \
+            -DHAVE_NETINET_IN_H \
+            -I. -Iconfig -Iinclude -Icrypto/include \
+            -Iboringssl/include \
+            ci/sm4_gcm_adapter_test.c sm4_gcm_bssl.o \
+            "$(find boringssl/out -name libcrypto.a -print -quit)" \
+            -lpthread -ldl -o sm4_gcm_adapter_test
+          ./sm4_gcm_adapter_test

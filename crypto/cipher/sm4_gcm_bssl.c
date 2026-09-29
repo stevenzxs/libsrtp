@@ -9,9 +9,9 @@
 #include <string.h>
 
 #include "alloc.h"
-#include "cipher_types.h"
 #include "crypto_types.h"
 #include "err.h"
+#include "cipher_types.h"
 #include "sm4_gcm.h"
 
 #define SM4_GCM_KEY_LEN 16
