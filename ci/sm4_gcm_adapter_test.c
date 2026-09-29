@@ -52,6 +52,12 @@ static void dump_hex(const unsigned char *data, size_t len) {
 }
 
 int main(void) {
+    const unsigned char block_key[16] = {
+        0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef,
+        0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10};
+    const unsigned char block_expected[16] = {
+        0x68, 0x1e, 0xdf, 0x34, 0xd2, 0x06, 0x96, 0x5e,
+        0x86, 0xb3, 0xe9, 0x4f, 0x53, 0x6e, 0x42, 0x46};
     unsigned char key_with_salt[28] = {0};
     unsigned char packet[80] = {0};
     unsigned char actual_tag[16] = {0};
@@ -60,6 +66,21 @@ int main(void) {
     srtp_cipher_t *cipher = NULL;
     unsigned char direct_ciphertext[sizeof(plaintext)] = {0};
     unsigned char direct_tag[sizeof(tag)] = {0};
+    unsigned char block_ciphertext[16] = {0};
+    SM4_KEY block_schedule;
+
+    if (!check(SM4_set_key(block_key, &block_schedule) == 0,
+               "SM4 set key") ) {
+        return 1;
+    }
+    SM4_encrypt(block_key, block_ciphertext, &block_schedule);
+    if (memcmp(block_ciphertext, block_expected, sizeof(block_expected)) != 0) {
+        fprintf(stderr, "SM4 block ciphertext: ");
+        dump_hex(block_ciphertext, sizeof(block_ciphertext));
+        fprintf(stderr, "SM4 block expected: ");
+        dump_hex(block_expected, sizeof(block_expected));
+        return 1;
+    }
 
     if (!check(SM4_GCM_encrypt(key, iv, aad, sizeof(aad), plaintext,
                                sizeof(plaintext), direct_ciphertext,
