@@ -98,13 +98,27 @@ static srtp_err_status_t sm4_gcm_encrypt(void *cv, uint8_t *buf,
                                           unsigned int *len) {
     srtp_sm4_gcm_ctx_t *state = cv;
     size_t tag_len = 0;
+    uint8_t *out = buf;
+    if (*len != 0) {
+        out = srtp_crypto_alloc(*len);
+        if (out == NULL) {
+            return srtp_err_status_alloc_fail;
+        }
+    }
     if (state->ctx == NULL ||
         !EVP_AEAD_CTX_seal_scatter(
-            state->ctx, buf, state->tag, &tag_len, sizeof(state->tag),
-            state->iv, sizeof(state->iv), buf, *len, NULL, 0, state->aad,
+            state->ctx, out, state->tag, &tag_len, sizeof(state->tag), state->iv,
+            sizeof(state->iv), buf, *len, NULL, 0, state->aad,
             state->aad_len) ||
         tag_len != state->tag_len) {
+        if (out != buf) {
+            srtp_crypto_free(out);
+        }
         return srtp_err_status_algo_fail;
+    }
+    if (out != buf) {
+        memcpy(buf, out, *len);
+        srtp_crypto_free(out);
     }
     return srtp_err_status_ok;
 }
