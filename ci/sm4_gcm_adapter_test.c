@@ -2,6 +2,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <openssl/sm4.h>
+
 #include "cipher.h"
 #include "sm4_gcm.h"
 
@@ -56,6 +58,26 @@ int main(void) {
     unsigned int packet_len = sizeof(plaintext);
     uint32_t actual_tag_len = 0;
     srtp_cipher_t *cipher = NULL;
+    unsigned char direct_ciphertext[sizeof(plaintext)] = {0};
+    unsigned char direct_tag[sizeof(tag)] = {0};
+
+    if (!check(SM4_GCM_encrypt(key, iv, aad, sizeof(aad), plaintext,
+                               sizeof(plaintext), direct_ciphertext,
+                               direct_tag),
+               "direct SM4-GCM encrypt")) {
+        return 1;
+    }
+    if (memcmp(direct_ciphertext, ciphertext, sizeof(ciphertext)) != 0) {
+        fprintf(stderr, "direct ciphertext: ");
+        dump_hex(direct_ciphertext, sizeof(direct_ciphertext));
+        fprintf(stderr, "expected ciphertext: ");
+        dump_hex(ciphertext, sizeof(ciphertext));
+        return 1;
+    }
+    if (memcmp(direct_tag, tag, sizeof(tag)) != 0) {
+        fprintf(stderr, "direct tag mismatch\n");
+        return 1;
+    }
 
     memcpy(key_with_salt, key, sizeof(key));
     if (!check(srtp_sm4_gcm.alloc(&cipher, 28, 16) == srtp_err_status_ok,
