@@ -42,6 +42,13 @@ static int check(int condition, const char *message) {
     return 1;
 }
 
+static void dump_hex(const unsigned char *data, size_t len) {
+    for (size_t i = 0; i < len; ++i) {
+        fprintf(stderr, "%02x", data[i]);
+    }
+    fputc('\n', stderr);
+}
+
 int main(void) {
     unsigned char key_with_salt[28] = {0};
     unsigned char packet[80] = {0};
@@ -70,10 +77,19 @@ int main(void) {
     if (!check(srtp_sm4_gcm.encrypt(cipher->state, packet, &packet_len) ==
                    srtp_err_status_ok,
                "encrypt") ||
-        !check(packet_len == sizeof(plaintext), "encrypt length") ||
-        !check(!memcmp(packet, ciphertext, sizeof(ciphertext)),
-               "ciphertext") ||
-        !check(srtp_sm4_gcm.get_tag(cipher->state, actual_tag,
+        !check(packet_len == sizeof(plaintext), "encrypt length")) {
+        srtp_sm4_gcm.dealloc(cipher);
+        return 1;
+    }
+    if (memcmp(packet, ciphertext, sizeof(ciphertext)) != 0) {
+        fprintf(stderr, "actual ciphertext: ");
+        dump_hex(packet, sizeof(ciphertext));
+        fprintf(stderr, "expected ciphertext: ");
+        dump_hex(ciphertext, sizeof(ciphertext));
+        srtp_sm4_gcm.dealloc(cipher);
+        return 1;
+    }
+    if (!check(srtp_sm4_gcm.get_tag(cipher->state, actual_tag,
                                     &actual_tag_len) == srtp_err_status_ok,
                "get tag") ||
         !check(actual_tag_len == sizeof(tag) && !memcmp(actual_tag, tag, sizeof(tag)),
