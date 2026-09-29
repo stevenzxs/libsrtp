@@ -19,7 +19,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: stevenzxs/BoringSSL
-          ref: v43.3.0-gm19
+          ref: v43.3.0-gm20
           path: boringssl
           fetch-depth: 1
 
