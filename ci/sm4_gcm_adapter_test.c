@@ -199,6 +199,9 @@ int main(void) {
                                    srtp_direction_decrypt) ==
                    srtp_err_status_ok,
                "set decrypt iv") ||
+        !check(srtp_sm4_gcm.set_aad(cipher->state, aad, sizeof(aad)) ==
+                   srtp_err_status_ok,
+               "set decrypt aad") ||
         !check(srtp_sm4_gcm.decrypt(cipher->state, packet, &packet_len) ==
                    srtp_err_status_ok,
                "decrypt") ||

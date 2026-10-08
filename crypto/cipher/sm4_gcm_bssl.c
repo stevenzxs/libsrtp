@@ -82,17 +82,21 @@ static srtp_err_status_t sm4_gcm_set_iv(void *cv, uint8_t *iv,
     (void)direction;
     srtp_sm4_gcm_ctx_t *state = cv;
     memcpy(state->iv, iv, sizeof(state->iv));
+    /* A new packet begins here: reset AAD accumulation. */
+    state->aad_len = 0;
     return srtp_err_status_ok;
 }
 
 static srtp_err_status_t sm4_gcm_set_aad(void *cv, const uint8_t *aad,
                                           uint32_t aad_len) {
     srtp_sm4_gcm_ctx_t *state = cv;
-    if (aad_len > sizeof(state->aad)) {
+    /* srtp.c feeds AAD in pieces (e.g. RTCP header then SRTCP trailer), so
+     * append instead of overwriting. */
+    if (aad_len > sizeof(state->aad) - state->aad_len) {
         return srtp_err_status_bad_param;
     }
-    memcpy(state->aad, aad, aad_len);
-    state->aad_len = aad_len;
+    memcpy(state->aad + state->aad_len, aad, aad_len);
+    state->aad_len += aad_len;
     return srtp_err_status_ok;
 }
 
