@@ -52,6 +52,7 @@ extern const srtp_cipher_type_t srtp_aes_icm_192;
 extern const srtp_cipher_type_t srtp_aes_gcm_128;
 extern const srtp_cipher_type_t srtp_aes_gcm_256;
 extern const srtp_cipher_type_t srtp_sm4_gcm;
+extern const srtp_cipher_type_t srtp_sm4_ctr;
 #endif
 
 /*

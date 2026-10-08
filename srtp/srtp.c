@@ -80,6 +80,12 @@ static const uint16_t xtn_hdr_two_byte_profile = 0x1000;
 static const uint16_t cryptex_one_byte_profile = 0xc0de;
 static const uint16_t cryptex_two_byte_profile = 0xc2de;
 
+static int srtp_is_aead_cipher(srtp_cipher_type_id_t algorithm)
+{
+    return algorithm == SRTP_AES_GCM_128 || algorithm == SRTP_AES_GCM_256 ||
+           algorithm == SRTP_SM4_GCM;
+}
+
 static uint32_t srtp_get_rtp_hdr_len(const srtp_hdr_t *hdr)
 {
     return octets_in_rtp_header + 4 * hdr->cc;
@@ -612,6 +618,10 @@ static srtp_err_status_t srtp_stream_alloc(srtp_stream_ctx_t **str_ptr,
             enc_xtn_hdr_cipher_type = SRTP_AES_ICM_256;
             enc_xtn_hdr_cipher_key_len = SRTP_AES_ICM_256_KEY_LEN_WSALT;
             break;
+        case SRTP_SM4_GCM:
+            enc_xtn_hdr_cipher_type = SRTP_SM4_CTR;
+            enc_xtn_hdr_cipher_key_len = SRTP_SM4_GCM_KEY_LEN_WSALT;
+            break;
         default:
             enc_xtn_hdr_cipher_type = p->rtp.cipher_type;
             enc_xtn_hdr_cipher_key_len = p->rtp.cipher_key_len;
@@ -896,6 +906,9 @@ static srtp_err_status_t srtp_kdf_init(srtp_kdf_t *kdf,
     case SRTP_AES_ICM_128_KEY_LEN_WSALT:
         cipher_id = SRTP_AES_ICM_128;
         break;
+    case SRTP_SM4_GCM_KEY_LEN_WSALT:
+        cipher_id = SRTP_SM4_CTR;
+        break;
     default:
         return srtp_err_status_bad_param;
         break;
@@ -970,8 +983,9 @@ static inline int base_key_length(const srtp_cipher_type_t *cipher,
          * the configured key length on the policy */
         return key_length - SRTP_SALT_LEN;
     case SRTP_AES_GCM_128:
-        return key_length - SRTP_AEAD_SALT_LEN;
     case SRTP_AES_GCM_256:
+    case SRTP_SM4_GCM:
+    case SRTP_SM4_CTR:
         return key_length - SRTP_AEAD_SALT_LEN;
     default:
         return key_length;
@@ -994,6 +1008,9 @@ static inline int full_key_length(const srtp_cipher_type_t *cipher)
         return SRTP_AES_GCM_128_KEY_LEN_WSALT;
     case SRTP_AES_GCM_256:
         return SRTP_AES_GCM_256_KEY_LEN_WSALT;
+    case SRTP_SM4_GCM:
+    case SRTP_SM4_CTR:
+        return SRTP_SM4_GCM_KEY_LEN_WSALT;
     default:
         return 0;
     }
@@ -1120,6 +1137,14 @@ srtp_err_status_t srtp_stream_init_keys(srtp_stream_ctx_t *srtp,
      */
     session_keys = &srtp->session_keys[current_mki_index];
 
+#if defined(OPENSSL) && defined(OPENSSL_KDF)
+    /* The OpenSSL-specific kdf_srtp path only implements the AES KDF. */
+    if (session_keys->rtp_cipher->algorithm == SRTP_SM4_GCM ||
+        session_keys->rtcp_cipher->algorithm == SRTP_SM4_GCM) {
+        return srtp_err_status_bad_param;
+    }
+#endif
+
 /* initialize key limit to maximum value */
 #ifdef NO_64BIT_MATH
     {
@@ -1164,6 +1189,11 @@ srtp_err_status_t srtp_stream_init_keys(srtp_stream_ctx_t *srtp,
         base_key_length(session_keys->rtp_cipher->type, rtp_keylen);
     rtp_salt_len = rtp_keylen - rtp_base_key_len;
 
+    if (session_keys->rtp_cipher->algorithm == SRTP_SM4_GCM) {
+        /* SM4-GCM uses the SM4-CTR KDF with the 96-bit master salt. */
+        kdf_keylen = SRTP_SM4_GCM_KEY_LEN_WSALT;
+    }
+
     /*
      * We assume that the `key` buffer provided by the caller has a length
      * equal to the greater of `rtp_keylen` and `rtcp_keylen`.  Since we are
@@ -1186,9 +1216,10 @@ srtp_err_status_t srtp_stream_init_keys(srtp_stream_ctx_t *srtp,
         kdf_keylen = input_keylen;
     }
 
-    if (kdf_keylen == SRTP_AES_GCM_128_KEY_LEN_WSALT ||
-        kdf_keylen == SRTP_AES_GCM_256_KEY_LEN_WSALT) {
-        kdf_keylen += 2; /* AES-CTR mode is always used for KDF */
+    if (session_keys->rtp_cipher->algorithm != SRTP_SM4_GCM &&
+        (kdf_keylen == SRTP_AES_GCM_128_KEY_LEN_WSALT ||
+         kdf_keylen == SRTP_AES_GCM_256_KEY_LEN_WSALT)) {
+        kdf_keylen += 2; /* AES-CTR mode is always used for AES-GCM KDF */
     }
 
     debug_print(mod_srtp, "input key len: %d", input_keylen);
@@ -1199,9 +1230,10 @@ srtp_err_status_t srtp_stream_init_keys(srtp_stream_ctx_t *srtp,
     debug_print(mod_srtp, "rtp salt len: %d", rtp_salt_len);
 
     /*
-     * Make sure the key given to us is 'zero' appended.  GCM
-     * mode uses a shorter master SALT (96 bits), but still relies on
-     * the legacy CTR mode KDF, which uses a 112 bit master SALT.
+     * Make sure the key given to us is 'zero' appended.  AES-GCM uses a
+     * shorter master SALT (96 bits) but still relies on the AES-CTR KDF,
+     * which expects a 112-bit master SALT.  SM4-GCM uses the SM4-CTR KDF
+     * with the 96-bit master SALT directly.
      */
     memset(tmp_key, 0x0, MAX_SRTP_KEY_LEN);
     memcpy(tmp_key, key, input_keylen);
@@ -1288,6 +1320,7 @@ srtp_err_status_t srtp_stream_init_keys(srtp_stream_ctx_t *srtp,
                 switch (session_keys->rtp_cipher->type->id) {
                 case SRTP_AES_GCM_128:
                 case SRTP_AES_GCM_256:
+                case SRTP_SM4_GCM:
                     /*
                      * The shorter GCM salt is padded to the required ICM salt
                      * length.
@@ -1844,8 +1877,7 @@ static srtp_session_keys_t *srtp_get_session_keys_rtp(
     unsigned int tag_len = 0;
 
     // Determine the authentication tag size
-    if (stream->session_keys[0].rtp_cipher->algorithm == SRTP_AES_GCM_128 ||
-        stream->session_keys[0].rtp_cipher->algorithm == SRTP_AES_GCM_256) {
+    if (srtp_is_aead_cipher(stream->session_keys[0].rtp_cipher->algorithm)) {
         tag_len = 0;
     } else {
         tag_len = srtp_auth_get_tag_length(stream->session_keys[0].rtp_auth);
@@ -1863,8 +1895,7 @@ static srtp_session_keys_t *srtp_get_session_keys_rtcp(
     unsigned int tag_len = 0;
 
     // Determine the authentication tag size
-    if (stream->session_keys[0].rtcp_cipher->algorithm == SRTP_AES_GCM_128 ||
-        stream->session_keys[0].rtcp_cipher->algorithm == SRTP_AES_GCM_256) {
+    if (srtp_is_aead_cipher(stream->session_keys[0].rtcp_cipher->algorithm)) {
         tag_len = 0;
     } else {
         tag_len = srtp_auth_get_tag_length(stream->session_keys[0].rtcp_auth);
@@ -2486,8 +2517,7 @@ srtp_err_status_t srtp_protect_mki(srtp_ctx_t *ctx,
      * Check if this is an AEAD stream (GCM mode).  If so, then dispatch
      * the request to our AEAD handler.
      */
-    if (session_keys->rtp_cipher->algorithm == SRTP_AES_GCM_128 ||
-        session_keys->rtp_cipher->algorithm == SRTP_AES_GCM_256) {
+    if (srtp_is_aead_cipher(session_keys->rtp_cipher->algorithm)) {
         return srtp_protect_aead(ctx, stream, rtp_hdr,
                                  (unsigned int *)pkt_octet_len, session_keys,
                                  use_mki);
@@ -2845,8 +2875,7 @@ srtp_err_status_t srtp_unprotect_mki(srtp_ctx_t *ctx,
      * Check if this is an AEAD stream (GCM mode).  If so, then dispatch
      * the request to our AEAD handler.
      */
-    if (session_keys->rtp_cipher->algorithm == SRTP_AES_GCM_128 ||
-        session_keys->rtp_cipher->algorithm == SRTP_AES_GCM_256) {
+    if (srtp_is_aead_cipher(session_keys->rtp_cipher->algorithm)) {
         return srtp_unprotect_aead(ctx, stream, delta, est, srtp_hdr,
                                    (unsigned int *)pkt_octet_len, session_keys,
                                    mki_size, advance_packet_index);
@@ -4359,8 +4388,7 @@ srtp_err_status_t srtp_protect_rtcp_mki(srtp_t ctx,
      * Check if this is an AEAD stream (GCM mode).  If so, then dispatch
      * the request to our AEAD handler.
      */
-    if (session_keys->rtp_cipher->algorithm == SRTP_AES_GCM_128 ||
-        session_keys->rtp_cipher->algorithm == SRTP_AES_GCM_256) {
+    if (srtp_is_aead_cipher(session_keys->rtp_cipher->algorithm)) {
         return srtp_protect_rtcp_aead(stream, rtcp_hdr,
                                       (unsigned int *)pkt_octet_len,
                                       session_keys, use_mki);
@@ -4592,8 +4620,7 @@ srtp_err_status_t srtp_unprotect_rtcp_mki(srtp_t ctx,
      * Check if this is an AEAD stream (GCM mode).  If so, then dispatch
      * the request to our AEAD handler.
      */
-    if (session_keys->rtp_cipher->algorithm == SRTP_AES_GCM_128 ||
-        session_keys->rtp_cipher->algorithm == SRTP_AES_GCM_256) {
+    if (srtp_is_aead_cipher(session_keys->rtp_cipher->algorithm)) {
         return srtp_unprotect_rtcp_aead(ctx, stream, srtcp_hdr,
                                         (unsigned int *)pkt_octet_len,
                                         session_keys, mki_size);

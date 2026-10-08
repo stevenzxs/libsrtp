@@ -33,8 +33,8 @@ static const unsigned char ciphertext[64] = {
     0xd4, 0x96, 0xac, 0x15, 0xa5, 0x68, 0x34, 0xcb, 0xcf, 0x98, 0xc3,
     0x97, 0xb4, 0x02, 0x4a, 0x26, 0x91, 0x23, 0x3b, 0x8d};
 static const unsigned char tag[16] = {
-    0x83, 0xde, 0x35, 0x41, 0xe4, 0xc2, 0xb5, 0x81,
-    0x77, 0xe0, 0x65, 0xa9, 0xbf, 0x7b, 0x62, 0xec};
+    0x69, 0x07, 0x31, 0x71, 0x00, 0xe9, 0x09, 0xb1,
+    0xcf, 0x6b, 0xaf, 0x0e, 0xda, 0xde, 0x69, 0xae};
 
 static int check(int condition, const char *message) {
     if (!condition) {
@@ -68,6 +68,20 @@ int main(void) {
     unsigned char direct_tag[sizeof(tag)] = {0};
     unsigned char block_ciphertext[16] = {0};
     SM4_KEY block_schedule;
+    const unsigned char kdf_key[16] = {
+        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+        0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f};
+    const unsigned char kdf_salt[12] = {
+        0xa0, 0xa1, 0xa2, 0xa3, 0xa4, 0xa5,
+        0xa6, 0xa7, 0xa8, 0xa9, 0xaa, 0xab};
+    unsigned char kdf_key_with_salt[28] = {0};
+    unsigned char kdf_nonce[16] = {0};
+    unsigned char kdf_expected_iv[16] = {0};
+    unsigned char kdf_expected[16] = {0};
+    unsigned char kdf_actual[16] = {0};
+    SM4_KEY kdf_schedule;
+    srtp_cipher_t *kdf_cipher = NULL;
+    unsigned int kdf_len = sizeof(kdf_actual);
 
     if (!check(SM4_set_key(block_key, &block_schedule) == 0,
                "SM4 set key") ) {
@@ -81,6 +95,40 @@ int main(void) {
         dump_hex(block_expected, sizeof(block_expected));
         return 1;
     }
+
+    memcpy(kdf_key_with_salt, kdf_key, sizeof(kdf_key));
+    memcpy(kdf_key_with_salt + sizeof(kdf_key), kdf_salt, sizeof(kdf_salt));
+    memcpy(kdf_expected_iv, kdf_salt, sizeof(kdf_salt));
+    kdf_expected_iv[7] ^= 0x00; /* label_rtp_encryption */
+    if (!check(SM4_set_key(kdf_key, &kdf_schedule) == 0,
+               "SM4 KDF set key")) {
+        return 1;
+    }
+    SM4_encrypt(kdf_expected_iv, kdf_expected, &kdf_schedule);
+    if (!check(srtp_sm4_ctr.alloc(&kdf_cipher, 28, 0) == srtp_err_status_ok,
+               "SM4-CTR alloc") ||
+        !check(srtp_sm4_ctr.init(kdf_cipher->state, kdf_key_with_salt) ==
+                   srtp_err_status_ok,
+               "SM4-CTR init") ||
+        !check(srtp_sm4_ctr.set_iv(kdf_cipher->state, kdf_nonce,
+                                   srtp_direction_encrypt) ==
+                   srtp_err_status_ok,
+               "SM4-CTR set iv") ||
+        !check(srtp_sm4_ctr.encrypt(kdf_cipher->state, kdf_actual, &kdf_len) ==
+                   srtp_err_status_ok,
+               "SM4-CTR encrypt")) {
+        srtp_sm4_ctr.dealloc(kdf_cipher);
+        return 1;
+    }
+    if (memcmp(kdf_actual, kdf_expected, sizeof(kdf_expected)) != 0) {
+        fprintf(stderr, "SM4-CTR KDF actual: ");
+        dump_hex(kdf_actual, sizeof(kdf_actual));
+        fprintf(stderr, "SM4-CTR KDF expected: ");
+        dump_hex(kdf_expected, sizeof(kdf_expected));
+        srtp_sm4_ctr.dealloc(kdf_cipher);
+        return 1;
+    }
+    srtp_sm4_ctr.dealloc(kdf_cipher);
 
     if (!check(SM4_GCM_encrypt(key, iv, aad, sizeof(aad), plaintext,
                                sizeof(plaintext), direct_ciphertext,
@@ -96,7 +144,10 @@ int main(void) {
         return 1;
     }
     if (memcmp(direct_tag, tag, sizeof(tag)) != 0) {
-        fprintf(stderr, "direct tag mismatch\n");
+        fprintf(stderr, "direct tag actual: ");
+        dump_hex(direct_tag, sizeof(direct_tag));
+        fprintf(stderr, "direct tag expected: ");
+        dump_hex(tag, sizeof(tag));
         return 1;
     }
 
@@ -159,6 +210,6 @@ int main(void) {
     }
 
     srtp_sm4_gcm.dealloc(cipher);
-    puts("SM4-GCM adapter test passed");
+    puts("SM4-GCM/SM4-CTR adapter test passed");
     return 0;
 }

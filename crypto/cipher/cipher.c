@@ -274,7 +274,8 @@ srtp_err_status_t srtp_cipher_type_test(
         }
 
         if (c->algorithm == SRTP_AES_GCM_128 ||
-            c->algorithm == SRTP_AES_GCM_256) {
+            c->algorithm == SRTP_AES_GCM_256 ||
+            c->algorithm == SRTP_SM4_GCM) {
             debug_print(srtp_mod_cipher, "IV:    %s",
                         srtp_octet_string_hex_string(test_case->idx, 12));
 
@@ -301,7 +302,8 @@ srtp_err_status_t srtp_cipher_type_test(
         }
 
         if (c->algorithm == SRTP_AES_GCM_128 ||
-            c->algorithm == SRTP_AES_GCM_256) {
+            c->algorithm == SRTP_AES_GCM_256 ||
+            c->algorithm == SRTP_SM4_GCM) {
             /*
              * Get the GCM tag
              */
@@ -378,7 +380,8 @@ srtp_err_status_t srtp_cipher_type_test(
         }
 
         if (c->algorithm == SRTP_AES_GCM_128 ||
-            c->algorithm == SRTP_AES_GCM_256) {
+            c->algorithm == SRTP_AES_GCM_256 ||
+            c->algorithm == SRTP_SM4_GCM) {
             /*
              * Set the AAD
              */
@@ -500,7 +503,8 @@ srtp_err_status_t srtp_cipher_type_test(
         }
 
         if (c->algorithm == SRTP_AES_GCM_128 ||
-            c->algorithm == SRTP_AES_GCM_256) {
+            c->algorithm == SRTP_AES_GCM_256 ||
+            c->algorithm == SRTP_SM4_GCM) {
             /*
              * Set the AAD
              */
@@ -523,7 +527,8 @@ srtp_err_status_t srtp_cipher_type_test(
             return status;
         }
         if (c->algorithm == SRTP_AES_GCM_128 ||
-            c->algorithm == SRTP_AES_GCM_256) {
+            c->algorithm == SRTP_AES_GCM_256 ||
+            c->algorithm == SRTP_SM4_GCM) {
             /*
              * Get the GCM tag
              */
@@ -553,7 +558,8 @@ srtp_err_status_t srtp_cipher_type_test(
             return status;
         }
         if (c->algorithm == SRTP_AES_GCM_128 ||
-            c->algorithm == SRTP_AES_GCM_256) {
+            c->algorithm == SRTP_AES_GCM_256 ||
+            c->algorithm == SRTP_SM4_GCM) {
             /*
              * Set the AAD
              */

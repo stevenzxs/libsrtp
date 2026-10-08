@@ -10,6 +10,7 @@ extern "C" {
 #endif
 
 extern const srtp_cipher_type_t srtp_sm4_gcm;
+extern const srtp_cipher_type_t srtp_sm4_ctr;
 
 #ifdef __cplusplus
 }

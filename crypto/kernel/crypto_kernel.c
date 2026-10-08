@@ -147,6 +147,11 @@ srtp_err_status_t srtp_crypto_kernel_init(void)
     if (status) {
         return status;
     }
+    status = srtp_crypto_kernel_load_cipher_type(&srtp_sm4_ctr,
+                                                 SRTP_SM4_CTR);
+    if (status) {
+        return status;
+    }
     status = srtp_crypto_kernel_load_debug_module(&srtp_mod_aes_gcm);
     if (status) {
         return status;

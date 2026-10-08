@@ -100,6 +100,12 @@
 /* SM4-GCM with a 16-octet key and a 12-octet master salt. */
 #define SRTP_SM4_GCM 8
 
+/* SM4-CTR with a 16-octet key, used for SM4-GCM key derivation and
+ * RTP header-extension encryption.  It is internal to libSRTP and is not
+ * advertised as a DTLS-SRTP protection profile.
+ */
+#define SRTP_SM4_CTR 9
+
 /*
  * The null authentication function performs no authentication.
  *
